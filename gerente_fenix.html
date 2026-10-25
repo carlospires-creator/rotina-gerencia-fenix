@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fênix — Painel do Gerente</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+  :root {
+    --bg: #0d0f14; --surface: #161920; --card: #1c1f29; --border: #2a2d3a;
+    --accent: #ff6b35; --accent2: #ffc145; --green: #3ecf8e; --red: #f66;
+    --text: #e8eaf0; --muted: #7a7f96; --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 20px; }
+  .logo span { color: var(--accent); }
+  .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .date-badge { background: var(--card); border: 1px solid var(--border); padding: 6px 14px; border-radius: 20px; font-size: 13px; color: var(--muted); }
+  .loja-select { background: var(--card); border: 1px solid var(--accent); padding: 6px 14px; border-radius: 20px; font-size: 13px; color: var(--accent); font-family: 'Syne', sans-serif; font-weight: 700; outline: none; cursor: pointer; }
+  .tabs { display: flex; gap: 4px; padding: 16px 24px 0; border-bottom: 1px solid var(--border); background: var(--surface); overflow-x: auto; }
+  .tab { padding: 10px 20px; border-radius: 8px 8px 0 0; cursor: pointer; font-family: 'Syne', sans-serif; font-weight: 600; font-size: 14px; color: var(--muted); border: 1px solid transparent; border-bottom: none; transition: all 0.2s; white-space: nowrap; }
+  .tab.active { background: var(--bg); color: var(--accent); border-color: var(--border); }
+  .tab:hover:not(.active) { color: var(--text); }
+  main { padding: 24px; max-width: 900px; margin: 0 auto; }
+  .page { display: none; } .page.active { display: block; }
+  .section-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 22px; margin-bottom: 6px; }
+  .section-sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+  .rotina-bloco { margin-bottom: 28px; }
+  .bloco-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .bloco-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .bloco-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; }
+  .bloco-time { font-size: 12px; color: var(--muted); margin-left: auto; }
+  .checklist { display: flex; flex-direction: column; gap: 8px; }
+  .check-item { display: flex; align-items: flex-start; gap: 12px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; cursor: pointer; transition: border-color 0.2s, opacity 0.2s; user-select: none; }
+  .check-item:hover { border-color: var(--accent); }
+  .check-item.done { opacity: 0.5; }
+  .check-item.done .check-text { text-decoration: line-through; color: var(--muted); }
+  .checkbox { width: 20px; height: 20px; border: 2px solid var(--border); border-radius: 6px; flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; font-size: 12px; }
+  .check-item.done .checkbox { background: var(--green); border-color: var(--green); color: #000; }
+  .check-text { font-size: 14px; line-height: 1.5; }
+  .check-tag { margin-left: auto; font-size: 11px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; flex-shrink: 0; }
+  .progress-bar-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: center; gap: 16px; }
+  .progress-label { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .progress-track { flex: 1; background: var(--border); border-radius: 4px; height: 8px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 4px; transition: width 0.4s ease; }
+  .progress-pct { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; color: var(--accent); white-space: nowrap; }
+  .form-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+  .form-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 12px; color: var(--muted); font-weight: 500; }
+  input, select, textarea { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  select option { background: var(--card); }
+  textarea { resize: vertical; min-height: 70px; }
+  .valor-calc { background: var(--bg); border: 1px solid var(--accent); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; }
+  .valor-calc-label { color: var(--muted); font-size: 13px; }
+  .valor-calc-result { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 20px; color: var(--accent); }
+  .btn { padding: 11px 22px; border-radius: 8px; border: none; cursor: pointer; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; transition: all 0.2s; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #ff8255; transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+  .form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+  .table-wrap { overflow-x: auto; margin-top: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 14px; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 11px 14px; border-bottom: 1px solid #1e2130; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,107,53,0.04); }
+  .badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-red { background: rgba(255,102,102,0.15); color: var(--red); }
+  .badge-yellow { background: rgba(255,193,69,0.15); color: var(--accent2); }
+  .badge-green { background: rgba(62,207,142,0.15); color: var(--green); }
+  .badge-orange { background: rgba(255,107,53,0.15); color: var(--accent); }
+  .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
+  .summary-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+  .summary-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .summary-value { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 26px; }
+  .summary-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .del-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 4px; border-radius: 4px; transition: color 0.2s; }
+  .del-btn:hover { color: var(--red); }
+  .empty { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; }
+  .empty-icon { font-size: 36px; margin-bottom: 10px; }
+  .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 10px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; opacity: 0; transform: translateY(10px); transition: all 0.3s; pointer-events: none; z-index: 999; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.success { background: var(--green); color: #000; }
+  .toast.error { background: var(--red); color: #fff; }
+  .loading { text-align: center; padding: 20px; color: var(--muted); font-size: 13px; }
+
+  /* ── NAV: desktop = abas no topo, mobile = barra embaixo ── */
+  .tabs { display: flex; }
+  .bottom-nav { display: none; }
+  .nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; cursor: pointer; transition: all 0.2s; padding: 8px 4px;
+    border: none; background: none; color: var(--muted);
+  }
+  .nav-item.active { color: var(--accent); }
+  .nav-icon { font-size: 22px; line-height: 1; }
+  .nav-label { font-family: 'Syne', sans-serif; font-weight: 600; font-size: 10px; letter-spacing: 0.3px; }
+  .nav-item.active .nav-label { color: var(--accent); }
+
+  @media (max-width: 768px) {
+    .tabs { display: none; }
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+      background: var(--surface); border-top: 1px solid var(--border);
+      display: flex; height: 68px;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    body { padding-bottom: 68px; }
+    .toast { bottom: 88px; right: 16px; }
+    header { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
+    .logo { font-size: 17px; }
+    .date-badge { font-size: 12px; padding: 5px 10px; }
+    .loja-select { font-size: 12px; padding: 5px 10px; }
+    main { padding: 16px; }
+    .form-grid, .form-grid.three { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr 1fr; }
+    .check-item { padding: 14px 12px; }
+    .check-text { font-size: 13px; }
+    .check-tag { display: none; }
+    .section-title { font-size: 18px; }
+    .bloco-time { display: none; }
+    table { font-size: 12px; }
+    th, td { padding: 8px 10px; }
+    .progress-bar-wrap { flex-wrap: wrap; gap: 8px; }
+    .form-card { padding: 16px; }
+    .form-actions { flex-direction: column; }
+    .form-actions .btn { width: 100%; text-align: center; padding: 14px; font-size: 15px; }
+    .btn-primary { padding: 14px 22px; font-size: 15px; }
+    input, select, textarea { font-size: 16px; padding: 12px; }
+    .valor-calc { flex-direction: column; gap: 4px; }
+    .valor-calc-result { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Fênix <span>●</span> Gerente</div>
+  <div class="header-right">
+    <select class="loja-select" id="lojaSelect">
+      <option value="Super Fenix">Super Fenix</option>
+      <option value="Fenix 219">Fenix 219</option>
+      <option value="Nova Fenix">Nova Fenix</option>
+      <option value="Acácia">Acácia</option>
+    </select>
+    <div class="date-badge" id="dateBadge"></div>
+  </div>
+</header>
+<nav class="bottom-nav">
+  <button class="nav-item active" onclick="switchTab('rotina')" id="nav-rotina">
+    <span class="nav-icon">📋</span><span class="nav-label">Rotina</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('perdas')" id="nav-perdas">
+    <span class="nav-icon">🗑️</span><span class="nav-label">Perdas</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('rupturas')" id="nav-rupturas">
+    <span class="nav-icon">📦</span><span class="nav-label">Rupturas</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('resumo')" id="nav-resumo">
+    <span class="nav-icon">📊</span><span class="nav-label">Resumo</span>
+  </button>
+</nav>
+<main>
+
+<!-- ROTINA -->
+<div id="page-rotina" class="page active">
+  <div class="section-title">Rotina Diária</div>
+  <div class="section-sub">Clique em cada item para marcar como concluído</div>
+  <div class="progress-bar-wrap">
+    <span class="progress-label">Progresso do dia</span>
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <span class="progress-pct" id="progressPct">0%</span>
+  </div>
+  <div class="rotina-bloco">
+    <div class="bloco-header"><div class="bloco-icon" style="background:rgba(255,107,53,0.15)">🌅</div><div class="bloco-title">Abertura da Loja</div><div class="bloco-time">07:00 – 08:00</div></div>
+    <div class="checklist" id="checklist-abertura"></div>
+  </div>
+  <div class="rotina-bloco">
+    <div class="bloco-header"><div class="bloco-icon" style="background:rgba(255,193,69,0.15)">☀️</div><div class="bloco-title">Turno da Manhã</div><div class="bloco-time">08:00 – 12:00</div></div>
+    <div class="checklist" id="checklist-manha"></div>
+  </div>
+  <div class="rotina-bloco">
+    <div class="bloco-header"><div class="bloco-icon" style="background:rgba(62,207,142,0.15)">🌤️</div><div class="bloco-title">Turno da Tarde</div><div class="bloco-time">12:00 – 17:00</div></div>
+    <div class="checklist" id="checklist-tarde"></div>
+  </div>
+  <div class="rotina-bloco">
+    <div class="bloco-header"><div class="bloco-icon" style="background:rgba(100,100,200,0.15)">🌙</div><div class="bloco-title">Fechamento</div><div class="bloco-time">17:00 – 18:00</div></div>
+    <div class="checklist" id="checklist-fechamento"></div>
+  </div>
+  <button class="btn btn-ghost" onclick="resetRotina()" style="margin-top:8px">🔄 Resetar para amanhã</button>
+</div>
+
+<!-- PERDAS -->
+<div id="page-perdas" class="page">
+  <div class="section-title">Registro de Perdas</div>
+  <div class="section-sub">Registre produtos vencidos, avariados ou furtados</div>
+  <div class="form-card">
+    <div class="form-title">Nova Perda</div>
+    <div class="form-grid three">
+      <div class="form-group"><label>Produto</label><input type="text" id="p-produto" placeholder="Ex: Tomate italiano"></div>
+      <div class="form-group"><label>Seção</label>
+        <select id="p-secao"><option value="">Selecione...</option><option>FLV</option><option>Açougue</option><option>Frios / Laticínios</option><option>Padaria</option><option>Mercearia</option><option>Bebidas</option><option>Higiene / Limpeza</option><option>Congelados</option><option>Outro</option></select>
+      </div>
+      <div class="form-group"><label>Motivo</label>
+        <select id="p-motivo"><option value="">Selecione...</option><option>Vencimento</option><option>Avaria / Queda</option><option>Furto</option><option>Erro de recebimento</option><option>Má conservação</option><option>Outro</option></select>
+      </div>
+      <div class="form-group"><label>Quantidade perdida</label><input type="number" id="p-qtd" placeholder="Ex: 3" min="0" step="0.1" oninput="calcularValor()"></div>
+      <div class="form-group"><label>Unidade</label>
+        <select id="p-unidade"><option>un</option><option>kg</option><option>cx</option><option>fardo</option><option>litro</option></select>
+      </div>
+      <div class="form-group"><label>Valor unitário (R$)</label><input type="number" id="p-valor-unit" placeholder="Ex: 4.50" min="0" step="0.01" oninput="calcularValor()"></div>
+      <div class="form-group full">
+        <label>Valor estimado da perda (Qtd × Valor unitário)</label>
+        <div class="valor-calc">
+          <span class="valor-calc-label">Calculado automaticamente</span>
+          <span class="valor-calc-result" id="p-valor-display">R$ 0,00</span>
+        </div>
+        <input type="hidden" id="p-valor">
+      </div>
+      <div class="form-group full"><label>Observação (opcional)</label><textarea id="p-obs" placeholder="Detalhe se necessário..."></textarea></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="clearForm('perdas')">Limpar</button>
+      <button class="btn btn-primary" id="btn-salvar-perda" onclick="salvarPerda()">+ Registrar Perda</button>
+    </div>
+  </div>
+  <div id="perdas-lista"><div class="loading">Carregando...</div></div>
+</div>
+
+<!-- RUPTURAS -->
+<div id="page-rupturas" class="page">
+  <div class="section-title">Registro de Rupturas</div>
+  <div class="section-sub">Produto em falta na gôndola = venda perdida</div>
+  <div class="form-card">
+    <div class="form-title">Nova Ruptura</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Produto</label><input type="text" id="r-produto" placeholder="Ex: Arroz Broto Legal 5kg"></div>
+      <div class="form-group"><label>Seção</label>
+        <select id="r-secao"><option value="">Selecione...</option><option>FLV</option><option>Açougue</option><option>Frios / Laticínios</option><option>Padaria</option><option>Mercearia</option><option>Bebidas</option><option>Higiene / Limpeza</option><option>Congelados</option><option>Outro</option></select>
+      </div>
+      <div class="form-group"><label>Causa provável</label>
+        <select id="r-causa"><option value="">Selecione...</option><option>Falta de estoque</option><option>Produto no estoque, não reposto</option><option>Fornecedor não entregou</option><option>Pedido não feito</option><option>Alta demanda inesperada</option><option>Outro</option></select>
+      </div>
+      <div class="form-group"><label>Prioridade</label>
+        <select id="r-prioridade"><option value="Alta">🔴 Alta — item de alto giro</option><option value="Média">🟡 Média</option><option value="Baixa">🟢 Baixa</option></select>
+      </div>
+      <div class="form-group"><label>Horário detectado</label><input type="time" id="r-hora"></div>
+      <div class="form-group"><label>Status</label>
+        <select id="r-status"><option value="Aberta">Aberta</option><option value="Resolvida">Resolvida</option></select>
+      </div>
+      <div class="form-group full"><label>Ação tomada / observação</label><textarea id="r-acao" placeholder="Ex: Solicitado reposição ao almoxarifado..."></textarea></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="clearForm('rupturas')">Limpar</button>
+      <button class="btn btn-primary" id="btn-salvar-ruptura" onclick="salvarRuptura()">+ Registrar Ruptura</button>
+    </div>
+  </div>
+  <div id="rupturas-lista"><div class="loading">Carregando...</div></div>
+</div>
+
+<!-- RESUMO -->
+<div id="page-resumo" class="page">
+  <div class="section-title">Resumo do Dia</div>
+  <div class="section-sub" id="resumo-data"></div>
+  <div class="summary-grid">
+    <div class="summary-card"><div class="summary-label">Total de Perdas</div><div class="summary-value" id="res-perdas-total" style="color:var(--red)">R$ 0</div><div class="summary-sub" id="res-perdas-count">0 registros</div></div>
+    <div class="summary-card"><div class="summary-label">Rupturas Abertas</div><div class="summary-value" id="res-rupt-abertas" style="color:var(--accent2)">0</div><div class="summary-sub" id="res-rupt-total">0 registradas hoje</div></div>
+    <div class="summary-card"><div class="summary-label">Checklist</div><div class="summary-value" id="res-check-pct" style="color:var(--green)">0%</div><div class="summary-sub" id="res-check-count">0 de 0 tarefas</div></div>
+  </div>
+  <div class="form-card"><div class="form-title">📋 Perdas por Seção</div><div id="res-perdas-secao"></div></div>
+  <div class="form-card"><div class="form-title">📦 Rupturas de Alta Prioridade Abertas</div><div id="res-rupturas-alerta"></div></div>
+  <div style="margin-top:16px"><button class="btn btn-primary" onclick="exportarResumo()">📤 Copiar Resumo (WhatsApp)</button></div>
+</div>
+
+</main>
+<div class="toast" id="toast"></div>
+<script>
+const { createClient } = supabase;
+const sb = createClient('https://ivyhrcbjiijwacsepofh.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2eWhyY2JqaWlqd2Fjc2Vwb2ZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MjU1MDksImV4cCI6MjEwODAwMTUwOX0.E1z_vYw2WKWyWHI7o46-DhYBLM2Pt6QHF28XiaddOfw');
+
+const ROTINA = {
+  abertura: [
+    {id:'a1',text:'Verificar temperatura dos equipamentos frios (câmara, freezers)',tag:'Segurança',tagColor:'badge-red'},
+    {id:'a3',text:'Vistoriar FLV: retirar itens com má aparência antes de expor',tag:'Perda',tagColor:'badge-orange'},
+    {id:'a4',text:'Confirmar escala do dia — todos presentes ou cobrir falta',tag:'Equipe',tagColor:'badge-green'},
+    {id:'a5',text:'Verificar Romaneio — conferir se todas as notas estão presentes ou anotadas',tag:'Estoque',tagColor:'badge-green'},
+    {id:'a7',text:'Verificar se o Registro de Perdas/Rupturas está completo',tag:'Perda',tagColor:'badge-orange'},
+    {id:'a8',text:'Verificar se produtos das promoções diárias e alterações estão atualizados',tag:'Promoção',tagColor:'badge-yellow'},
+  ],
+  manha: [
+    {id:'m1',text:'Ronda pela loja: gôndolas abastecidas, precificação visível',tag:'Ruptura',tagColor:'badge-yellow'},
+    {id:'m2',text:'Conferir recebimento de mercadorias — nota, qualidade, temperatura',tag:'Estoque',tagColor:'badge-green'},
+    {id:'a6',text:'Verificar se há produtos recebidos no dia anterior no depósito',tag:'Estoque',tagColor:'badge-green'},
+    {id:'m4',text:'Observar FLV: repor e retirar itens em deterioração',tag:'Perda',tagColor:'badge-orange'},
+    {id:'m5',text:'Verificar limpeza geral — área de vendas e banheiros',tag:'Operação',tagColor:'badge-green'},
+    {id:'m6',text:'Verificar mercadoria em excesso para ação promocional com Diretoria',tag:'Promoção',tagColor:'badge-yellow'},
+    {id:'m7',text:'Checar lista de vencimento das mercadorias e verificar na prateleira',tag:'Perda',tagColor:'badge-orange'},
+    {id:'m8',text:'Verificar se cartazes internos e externos estão de acordo com o encarte',tag:'Promoção',tagColor:'badge-yellow'},
+  ],
+  tarde: [
+    {id:'t1',text:'Ronda de rupturas: anotar itens em falta nas gôndolas',tag:'Ruptura',tagColor:'badge-yellow'},
+    {id:'t2',text:'Acionar reposição dos itens em falta detectados',tag:'Ruptura',tagColor:'badge-yellow'},
+    {id:'m3',text:'Registrar perdas no período',tag:'Perda',tagColor:'badge-orange'},
+    {id:'t4',text:'Verificar se todos os produtos do encarte estão com destaque de preço',tag:'Promoção',tagColor:'badge-yellow'},
+    {id:'t5',text:'Verificar abastecimento do açougue e laticínios',tag:'Estoque',tagColor:'badge-green'},
+  ],
+  fechamento: [
+    {id:'f1',text:'Retirar FLV perecível que não vai resistir ao dia seguinte',tag:'Perda',tagColor:'badge-orange'},
+    {id:'f2',text:'Registrar rupturas não resolvidas para o próximo turno',tag:'Ruptura',tagColor:'badge-yellow'},
+    {id:'f3',text:'Checar temperatura final dos equipamentos frios',tag:'Segurança',tagColor:'badge-red'},
+    {id:'f4',text:'Atualizar Livro de Ocorrências com todos os acontecimentos da loja',tag:'Operação',tagColor:'badge-green'},
+    {id:'f5',text:'Ronda nas áreas de fragilidade (laticínios, açougue, armários, chiqueirinho e lixeiras)',tag:'Segurança',tagColor:'badge-red'},
+  ]
+};
+
+const hoje = new Date();
+const hojeStr = hoje.toISOString().split('T')[0];
+const diasSemana = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const mesesFull = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+
+document.getElementById('dateBadge').textContent = `${diasSemana[hoje.getDay()]}, ${hoje.getDate()} ${meses[hoje.getMonth()]}`;
+document.getElementById('resumo-data').textContent = `${diasSemana[hoje.getDay()]}, ${hoje.getDate()} de ${mesesFull[hoje.getMonth()]} ${hoje.getFullYear()}`;
+const agora = new Date();
+document.getElementById('r-hora').value = String(agora.getHours()).padStart(2,'0')+':'+String(agora.getMinutes()).padStart(2,'0');
+
+let checkState = {};
+function getLoja() { return document.getElementById('lojaSelect').value; }
+
+function switchTab(name) {
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('nav-'+name)?.classList.add('active');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  window.scrollTo(0,0);
+  if(name==='perdas') loadPerdas();
+  if(name==='rupturas') loadRupturas();
+  if(name==='resumo') renderResumo();
+}
+
+// ── CHECKLIST ──────────────────────────────────────────
+async function loadChecklist() {
+  const {data} = await sb.from('checklist').select('task_id').eq('loja',getLoja()).eq('data',hojeStr);
+  checkState = {};
+  (data||[]).forEach(r=>{ checkState[r.task_id]=true; });
+  renderRotina();
+}
+
+async function toggleCheck(id, text, turno) {
+  const loja = getLoja();
+  if(checkState[id]) {
+    await sb.from('checklist').delete().eq('loja',loja).eq('data',hojeStr).eq('task_id',id);
+    checkState[id] = false;
+  } else {
+    await sb.from('checklist').insert({loja, data:hojeStr, task_id:id, task_text:text, turno});
+    checkState[id] = true;
+  }
+  renderRotina();
+}
+
+function renderRotina() {
+  ['abertura','manha','tarde','fechamento'].forEach(b=>{
+    document.getElementById('checklist-'+b).innerHTML = ROTINA[b].map(item=>`
+      <div class="check-item ${checkState[item.id]?'done':''}" onclick="toggleCheck('${item.id}',\`${item.text.replace(/`/g,"'")}\`,'${b}')">
+        <div class="checkbox">${checkState[item.id]?'✓':''}</div>
+        <span class="check-text">${item.text}</span>
+        <span class="check-tag badge ${item.tagColor}">${item.tag}</span>
+      </div>`).join('');
+  });
+  updateProgress();
+}
+
+function updateProgress() {
+  const all = Object.values(ROTINA).flat();
+  const done = all.filter(i=>checkState[i.id]).length;
+  const pct = Math.round((done/all.length)*100);
+  document.getElementById('progressFill').style.width = pct+'%';
+  document.getElementById('progressPct').textContent = pct+'%';
+}
+
+async function resetRotina() {
+  if(!confirm('Resetar checklist para amanhã? (Isso NÃO apaga os dados de hoje)')) return;
+  const amanha = new Date(); amanha.setDate(amanha.getDate()+1);
+  const amanhaStr = amanha.toISOString().split('T')[0];
+  await sb.from('checklist').delete().eq('loja',getLoja()).eq('data',amanhaStr);
+  showToast('Pronto! Checklist limpo para amanhã ✓','success');
+}
+
+// ── PERDAS ─────────────────────────────────────────────
+function calcularValor() {
+  const qtd = parseFloat(document.getElementById('p-qtd').value) || 0;
+  const unit = parseFloat(document.getElementById('p-valor-unit').value) || 0;
+  const total = qtd * unit;
+  document.getElementById('p-valor').value = total.toFixed(2);
+  document.getElementById('p-valor-display').textContent = 'R$ '+total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+async function loadPerdas() {
+  document.getElementById('perdas-lista').innerHTML = '<div class="loading">Carregando...</div>';
+  const {data} = await sb.from('perdas').select('*').eq('loja',getLoja()).eq('data',hojeStr).order('created_at',{ascending:false});
+  renderPerdas(data||[]);
+}
+
+function renderPerdas(list) {
+  const el = document.getElementById('perdas-lista');
+  if(!list.length){ el.innerHTML='<div class="empty"><div class="empty-icon">🟢</div>Nenhuma perda registrada hoje</div>'; return; }
+  el.innerHTML=`<div class="table-wrap"><table>
+    <thead><tr><th>Hora</th><th>Produto</th><th>Seção</th><th>Motivo</th><th>Qtd</th><th>Vlr Unit.</th><th>Total Perda</th><th></th></tr></thead>
+    <tbody>${list.map(p=>`<tr>
+      <td style="color:var(--muted)">${p.created_at?new Date(p.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
+      <td><strong>${p.produto}</strong>${p.obs?`<br><small style="color:var(--muted)">${p.obs}</small>`:''}</td>
+      <td><span class="badge badge-yellow">${p.secao}</span></td>
+      <td>${p.motivo}</td>
+      <td>${p.qtd} ${p.unidade}</td>
+      <td style="color:var(--muted)">${p.valor_unitario>0?'R$ '+parseFloat(p.valor_unitario).toFixed(2):'—'}</td>
+      <td style="color:var(--red);font-weight:700">${p.valor>0?'R$ '+parseFloat(p.valor).toFixed(2):'—'}</td>
+      <td><button class="del-btn" onclick="deletePerda(${p.id})">✕</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+async function salvarPerda() {
+  const produto = document.getElementById('p-produto').value.trim();
+  const secao = document.getElementById('p-secao').value;
+  const motivo = document.getElementById('p-motivo').value;
+  const qtd = document.getElementById('p-qtd').value;
+  const unidade = document.getElementById('p-unidade').value;
+  const valor_unitario = document.getElementById('p-valor-unit').value;
+  const valor = document.getElementById('p-valor').value;
+  const obs = document.getElementById('p-obs').value.trim();
+  if(!produto||!secao||!motivo||!qtd){ alert('Preencha produto, seção, motivo e quantidade.'); return; }
+  const btn = document.getElementById('btn-salvar-perda');
+  btn.disabled=true; btn.textContent='Salvando...';
+  const {error} = await sb.from('perdas').insert({
+    loja:getLoja(), produto, secao, motivo,
+    qtd:parseFloat(qtd), unidade,
+    valor_unitario: valor_unitario ? parseFloat(valor_unitario) : 0,
+    valor: valor ? parseFloat(valor) : 0,
+    obs, data:hojeStr
+  });
+  btn.disabled=false; btn.textContent='+ Registrar Perda';
+  if(error){ showToast('Erro ao salvar.','error'); console.error(error); return; }
+  clearForm('perdas'); await loadPerdas(); showToast('Perda registrada ✓','success');
+}
+
+async function deletePerda(id){ if(!confirm('Remover?'))return; await sb.from('perdas').delete().eq('id',id); await loadPerdas(); }
+
+// ── RUPTURAS ───────────────────────────────────────────
+async function loadRupturas() {
+  document.getElementById('rupturas-lista').innerHTML='<div class="loading">Carregando...</div>';
+  const {data} = await sb.from('rupturas').select('*').eq('loja',getLoja()).eq('data',hojeStr).order('created_at',{ascending:false});
+  renderRupturas(data||[]);
+}
+
+function renderRupturas(list) {
+  const el = document.getElementById('rupturas-lista');
+  if(!list.length){ el.innerHTML='<div class="empty"><div class="empty-icon">📦</div>Nenhuma ruptura registrada hoje</div>'; return; }
+  el.innerHTML=`<div class="table-wrap"><table>
+    <thead><tr><th>Hora</th><th>Produto</th><th>Seção</th><th>Causa</th><th>Prioridade</th><th>Status</th><th></th></tr></thead>
+    <tbody>${list.map(r=>`<tr>
+      <td style="color:var(--muted)">${r.hora||'—'}</td>
+      <td><strong>${r.produto}</strong>${r.acao?`<br><small style="color:var(--muted)">${r.acao}</small>`:''}</td>
+      <td><span class="badge badge-yellow">${r.secao}</span></td>
+      <td>${r.causa}</td>
+      <td><span class="badge ${r.prioridade==='Alta'?'badge-red':r.prioridade==='Média'?'badge-yellow':'badge-green'}">${r.prioridade}</span></td>
+      <td><select onchange="updateStatus(${r.id},this.value)" style="font-size:12px;padding:4px 8px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+        <option ${r.status==='Aberta'?'selected':''}>Aberta</option>
+        <option ${r.status==='Resolvida'?'selected':''}>Resolvida</option>
+      </select></td>
+      <td><button class="del-btn" onclick="deleteRuptura(${r.id})">✕</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+async function salvarRuptura() {
+  const produto = document.getElementById('r-produto').value.trim();
+  const secao = document.getElementById('r-secao').value;
+  const causa = document.getElementById('r-causa').value;
+  const prioridade = document.getElementById('r-prioridade').value;
+  const hora = document.getElementById('r-hora').value;
+  const status = document.getElementById('r-status').value;
+  const acao = document.getElementById('r-acao').value.trim();
+  if(!produto||!secao||!causa){ alert('Preencha produto, seção e causa.'); return; }
+  const btn = document.getElementById('btn-salvar-ruptura');
+  btn.disabled=true; btn.textContent='Salvando...';
+  const {error} = await sb.from('rupturas').insert({loja:getLoja(),produto,secao,causa,prioridade,status,acao,hora:hora||'',data:hojeStr});
+  btn.disabled=false; btn.textContent='+ Registrar Ruptura';
+  if(error){ showToast('Erro ao salvar.','error'); return; }
+  clearForm('rupturas'); await loadRupturas(); showToast('Ruptura registrada ✓','success');
+}
+
+async function updateStatus(id,status){ await sb.from('rupturas').update({status}).eq('id',id); showToast('Status atualizado ✓','success'); }
+async function deleteRuptura(id){ if(!confirm('Remover?'))return; await sb.from('rupturas').delete().eq('id',id); await loadRupturas(); }
+
+// ── RESUMO ─────────────────────────────────────────────
+async function renderResumo() {
+  const [{data:pList},{data:rList}] = await Promise.all([
+    sb.from('perdas').select('*').eq('loja',getLoja()).eq('data',hojeStr),
+    sb.from('rupturas').select('*').eq('loja',getLoja()).eq('data',hojeStr)
+  ]);
+  const perdas=pList||[], rupturas=rList||[];
+  const abertas=rupturas.filter(r=>r.status==='Aberta');
+  const totalValor=perdas.reduce((s,p)=>s+parseFloat(p.valor||0),0);
+  document.getElementById('res-perdas-total').textContent='R$ '+totalValor.toFixed(2);
+  document.getElementById('res-perdas-count').textContent=perdas.length+' registros hoje';
+  document.getElementById('res-rupt-abertas').textContent=abertas.length;
+  document.getElementById('res-rupt-total').textContent=rupturas.length+' registradas hoje';
+  const all=Object.values(ROTINA).flat();
+  const done=all.filter(i=>checkState[i.id]).length;
+  const pct=Math.round((done/all.length)*100);
+  document.getElementById('res-check-pct').textContent=pct+'%';
+  document.getElementById('res-check-count').textContent=`${done} de ${all.length} tarefas`;
+  const porSecao={};
+  perdas.forEach(p=>{ porSecao[p.secao]=(porSecao[p.secao]||0)+parseFloat(p.valor||0); });
+  document.getElementById('res-perdas-secao').innerHTML=!perdas.length
+    ?'<div class="empty" style="padding:20px 0">Sem perdas hoje 🎉</div>'
+    :`<div class="table-wrap"><table><thead><tr><th>Seção</th><th>Qtd</th><th>Valor estimado</th></tr></thead><tbody>
+      ${Object.entries(porSecao).map(([sec,val])=>`<tr><td><span class="badge badge-yellow">${sec}</span></td><td>${perdas.filter(p=>p.secao===sec).length}</td><td style="color:var(--red)">${val>0?'R$ '+val.toFixed(2):'—'}</td></tr>`).join('')}
+    </tbody></table></div>`;
+  const altas=abertas.filter(r=>r.prioridade==='Alta');
+  document.getElementById('res-rupturas-alerta').innerHTML=!altas.length
+    ?'<div class="empty" style="padding:20px 0">Sem rupturas de alta prioridade abertas ✓</div>'
+    :altas.map(r=>`<div style="background:rgba(255,102,102,0.08);border:1px solid rgba(255,102,102,0.2);border-radius:8px;padding:12px 16px;margin-bottom:8px;"><strong>${r.produto}</strong> — ${r.secao}<br><small style="color:var(--muted)">Causa: ${r.causa}${r.acao?' | Ação: '+r.acao:''}</small></div>`).join('');
+}
+
+async function exportarResumo() {
+  const [{data:pList},{data:rList}] = await Promise.all([
+    sb.from('perdas').select('*').eq('loja',getLoja()).eq('data',hojeStr),
+    sb.from('rupturas').select('*').eq('loja',getLoja()).eq('data',hojeStr)
+  ]);
+  const perdas=pList||[], rupturas=rList||[];
+  const totalValor=perdas.reduce((s,p)=>s+parseFloat(p.valor||0),0);
+  const abertas=rupturas.filter(r=>r.status==='Aberta');
+  const all=Object.values(ROTINA).flat();
+  const done=all.filter(i=>checkState[i.id]).length;
+  let txt=`📊 RESUMO DO DIA — ${getLoja()}\nData: ${hoje.toLocaleDateString('pt-BR')}\n\n`;
+  txt+=`✅ Checklist: ${done}/${all.length} tarefas (${Math.round(done/all.length*100)}%)\n`;
+  txt+=`🗑️ Perdas: ${perdas.length} registros — R$ ${totalValor.toFixed(2)}\n`;
+  txt+=`📦 Rupturas: ${rupturas.length} registradas, ${abertas.length} abertas\n\n`;
+  if(perdas.length){ txt+=`--- PERDAS ---\n`; perdas.forEach(p=>{ txt+=`• ${p.produto} (${p.secao}) — ${p.motivo} — ${p.qtd}${p.unidade} × R$ ${parseFloat(p.valor_unitario||0).toFixed(2)} = R$ ${parseFloat(p.valor||0).toFixed(2)}\n`; }); txt+='\n'; }
+  if(rupturas.length){ txt+=`--- RUPTURAS ---\n`; rupturas.forEach(r=>{ txt+=`• ${r.produto} (${r.secao}) — ${r.causa} — ${r.prioridade} — ${r.status}\n`; }); }
+  navigator.clipboard.writeText(txt).then(()=>showToast('Resumo copiado! ✓','success'));
+}
+
+// ── HELPERS ────────────────────────────────────────────
+function clearForm(type) {
+  if(type==='perdas'){
+    ['p-produto','p-qtd','p-valor-unit','p-valor','p-obs'].forEach(id=>document.getElementById(id).value='');
+    ['p-secao','p-motivo'].forEach(id=>document.getElementById(id).selectedIndex=0);
+    document.getElementById('p-valor-display').textContent='R$ 0,00';
+  } else {
+    ['r-produto','r-hora','r-acao'].forEach(id=>document.getElementById(id).value='');
+    ['r-secao','r-causa'].forEach(id=>document.getElementById(id).selectedIndex=0);
+    document.getElementById('r-prioridade').selectedIndex=0;
+    document.getElementById('r-status').selectedIndex=0;
+  }
+}
+
+function showToast(msg,type='success'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=`toast ${type} show`;
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ── INIT ───────────────────────────────────────────────
+loadChecklist(); loadPerdas(); loadRupturas();
+document.getElementById('lojaSelect').addEventListener('change',()=>{ loadChecklist(); loadPerdas(); loadRupturas(); });
+</script>
+</body>
+</html>
