@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fênix — Painel Cadu</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+  :root {
+    --bg:#0d0f14;--surface:#161920;--card:#1c1f29;--border:#2a2d3a;
+    --accent:#ff6b35;--accent2:#ffc145;--green:#3ecf8e;--red:#f66;--blue:#5b9cf6;
+    --text:#e8eaf0;--muted:#7a7f96;--radius:12px;
+    --fenix:#ff6b35;--fenix219:#ffc145;--nova:#3ecf8e;--acacia:#5b9cf6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+  .logo{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;}
+  .logo span{color:var(--accent);}
+  .header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .date-badge{background:var(--card);border:1px solid var(--border);padding:6px 14px;border-radius:20px;font-size:13px;color:var(--muted);}
+  .owner-badge{background:rgba(255,107,53,0.15);border:1px solid rgba(255,107,53,0.3);padding:6px 14px;border-radius:20px;font-size:13px;color:var(--accent);font-family:'Syne',sans-serif;font-weight:700;}
+  .tabs{display:flex;gap:4px;padding:16px 24px 0;border-bottom:1px solid var(--border);background:var(--surface);overflow-x:auto;}
+  .tab{padding:10px 20px;border-radius:8px 8px 0 0;cursor:pointer;font-family:'Syne',sans-serif;font-weight:600;font-size:14px;color:var(--muted);border:1px solid transparent;border-bottom:none;transition:all .2s;white-space:nowrap;}
+  .tab.active{background:var(--bg);color:var(--accent);border-color:var(--border);}
+  .tab:hover:not(.active){color:var(--text);}
+  .filter-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .filter-label{font-size:12px;color:var(--muted);}
+  .filter-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'Syne',sans-serif;font-weight:600;font-size:12px;cursor:pointer;transition:all .2s;}
+  .filter-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .date-range{display:flex;align-items:center;gap:6px;}
+  .date-input{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:5px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;outline:none;}
+  .date-input:focus{border-color:var(--accent);}
+  main{padding:24px;max-width:1100px;margin:0 auto;}
+  .page{display:none;}.page.active{display:block;}
+  .section-title{font-family:'Syne',sans-serif;font-weight:700;font-size:22px;margin-bottom:6px;}
+  .section-sub{color:var(--muted);font-size:14px;margin-bottom:24px;}
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;}
+  .kpi-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;position:relative;overflow:hidden;}
+  .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent);}
+  .kpi-card.green::before{background:var(--green);}
+  .kpi-card.yellow::before{background:var(--accent2);}
+  .kpi-card.red::before{background:var(--red);}
+  .kpi-label{font-size:12px;color:var(--muted);margin-bottom:8px;}
+  .kpi-value{font-family:'Syne',sans-serif;font-weight:800;font-size:28px;}
+  .kpi-sub{font-size:12px;color:var(--muted);margin-top:6px;}
+  .stores-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;}
+  .store-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
+  .store-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .store-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .store-name{font-family:'Syne',sans-serif;font-weight:700;font-size:13px;}
+  .store-check-pct{font-family:'Syne',sans-serif;font-weight:800;font-size:24px;margin-bottom:4px;}
+  .store-check-sub{font-size:11px;color:var(--muted);}
+  .store-progress{height:5px;background:var(--border);border-radius:3px;margin-top:10px;overflow:hidden;}
+  .store-progress-fill{height:100%;border-radius:3px;transition:width .4s;}
+  .chart-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;}
+  .chart-title{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;margin-bottom:16px;}
+  .chart-wrap{position:relative;height:280px;}
+  .table-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;}
+  .table-card-title{font-family:'Syne',sans-serif;font-weight:700;font-size:15px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;padding:10px 14px;color:var(--muted);font-weight:500;border-bottom:1px solid var(--border);white-space:nowrap;}
+  td{padding:11px 14px;border-bottom:1px solid #1e2130;vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:rgba(255,107,53,.04);}
+  .badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge-red{background:rgba(255,102,102,.15);color:var(--red);}
+  .badge-yellow{background:rgba(255,193,69,.15);color:var(--accent2);}
+  .badge-green{background:rgba(62,207,142,.15);color:var(--green);}
+  .badge-orange{background:rgba(255,107,53,.15);color:var(--accent);}
+  .badge-blue{background:rgba(91,156,246,.15);color:var(--blue);}
+  .loja-pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+  .empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:14px;}
+  .empty-icon{font-size:36px;margin-bottom:10px;}
+  .loading{text-align:center;padding:32px;color:var(--muted);font-size:13px;}
+  .toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none;z-index:999;}
+  .toast.show{opacity:1;transform:translateY(0);}
+  .toast.success{background:var(--green);color:#000;}
+  .toast.error{background:var(--red);color:#fff;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+
+  /* ── NAV: desktop = abas no topo, mobile = barra embaixo ── */
+  .tabs{display:flex;}
+  .bottom-nav{display:none;}
+  .nav-item{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:4px;cursor:pointer;transition:all .2s;padding:8px 4px;
+    border:none;background:none;color:var(--muted);
+  }
+  .nav-item.active{color:var(--accent);}
+  .nav-icon{font-size:22px;line-height:1;}
+  .nav-label{font-family:'Syne',sans-serif;font-weight:600;font-size:10px;letter-spacing:.3px;}
+  .nav-item.active .nav-label{color:var(--accent);}
+
+  @media(max-width:768px){
+    .tabs{display:none;}
+    .bottom-nav{
+      position:sticky;top:57px;left:0;right:0;z-index:99;
+      background:var(--surface);border-bottom:1px solid var(--border);
+      display:flex;height:58px;
+    }
+    body{padding-bottom:0;}
+    .toast{bottom:24px;right:16px;}
+    header{padding:12px 16px;}
+    .logo{font-size:17px;}
+    .kpi-grid,.stores-row{grid-template-columns:1fr 1fr;}
+    .two-col{grid-template-columns:1fr;}
+    main{padding:16px;}
+    .kpi-value{font-size:22px;}
+    .filter-bar{padding:10px 12px;gap:6px;overflow-x:auto;flex-wrap:nowrap;}
+    .filter-btn{font-size:11px;padding:5px 10px;white-space:nowrap;}
+    .date-range{display:none;}
+    .section-title{font-size:18px;}
+    .chart-wrap{height:220px;}
+    table{font-size:12px;}
+    th,td{padding:8px 8px;}
+    .stores-row{grid-template-columns:1fr 1fr;}
+    .store-check-pct{font-size:20px;}
+    .date-badge,.owner-badge{font-size:11px;padding:4px 8px;}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Fênix <span>●</span> Painel</div>
+  <div class="header-right">
+    <span class="owner-badge">👑 Cadu</span>
+    <div class="date-badge" id="dateBadge"></div>
+  </div>
+</header>
+<nav class="bottom-nav">
+  <button class="nav-item active" onclick="switchTab('geral')" id="nav-geral">
+    <span class="nav-icon">🏠</span><span class="nav-label">Geral</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('checklist')" id="nav-checklist">
+    <span class="nav-icon">✅</span><span class="nav-label">Checklist</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('perdas')" id="nav-perdas">
+    <span class="nav-icon">🗑️</span><span class="nav-label">Perdas</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('rupturas')" id="nav-rupturas">
+    <span class="nav-icon">📦</span><span class="nav-label">Rupturas</span>
+  </button>
+</nav>
+<div class="filter-bar">
+  <span class="filter-label">Período:</span>
+  <button class="filter-btn active" onclick="setPeriod('hoje')">Hoje</button>
+  <button class="filter-btn" onclick="setPeriod('semana')">Esta semana</button>
+  <button class="filter-btn" onclick="setPeriod('mes')">Este mês</button>
+  <div class="date-range">
+    <input type="date" class="date-input" id="dateFrom" onchange="setPeriod('custom')">
+    <span style="color:var(--muted);font-size:12px">→</span>
+    <input type="date" class="date-input" id="dateTo" onchange="setPeriod('custom')">
+  </div>
+</div>
+<main>
+
+<!-- VISÃO GERAL -->
+<div id="page-geral" class="page active">
+  <div class="section-title">Visão Geral</div>
+  <div class="section-sub" id="geral-sub">Todas as lojas</div>
+  <div class="kpi-grid" id="kpi-grid"><div class="loading">Carregando...</div></div>
+  <div class="stores-row" id="stores-row"></div>
+  <div class="two-col">
+    <div class="table-card"><div class="table-card-title">🗑️ Maiores Perdas (por valor)</div><div id="geral-top-perdas"></div></div>
+    <div class="table-card"><div class="table-card-title">📦 Rupturas Abertas por Loja</div><div id="geral-rupt-resumo"></div></div>
+  </div>
+</div>
+
+<!-- CHECKLIST -->
+<div id="page-checklist" class="page">
+  <div class="section-title">Checklist das Lojas</div>
+  <div class="section-sub" id="checklist-sub">Acompanhe as tarefas diárias de cada gerente</div>
+  <div class="two-col" style="margin-bottom:20px">
+    <div class="chart-card"><div class="chart-title" id="chart-title">Progresso por Loja</div><div class="chart-wrap"><canvas id="checkChart"></canvas></div></div>
+    <div style="display:flex;flex-direction:column;gap:14px;" id="check-store-cards"></div>
+  </div>
+  <div class="table-card"><div class="table-card-title">📋 Tarefas Realizadas</div><div id="checklist-table"></div></div>
+</div>
+
+<!-- PERDAS -->
+<div id="page-perdas" class="page">
+  <div class="section-title">Registro de Perdas</div>
+  <div class="section-sub">Consolidado de todas as lojas</div>
+  <div class="kpi-grid" id="perdas-kpi"></div>
+  <div class="two-col" style="margin-bottom:20px">
+    <div class="chart-card"><div class="chart-title">Perdas por Loja (R$)</div><div class="chart-wrap"><canvas id="perdasChart"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Perdas por Seção</div><div class="chart-wrap"><canvas id="perdasSecaoChart"></canvas></div></div>
+  </div>
+  <div class="chart-card" style="margin-bottom:20px"><div class="chart-title">📈 Evolução Mensal das Perdas</div><div class="chart-wrap"><canvas id="perdasMensalChart"></canvas></div></div>
+  <div class="table-card" style="margin-bottom:20px"><div class="table-card-title">🧠 Produtos com Mais Perdas (agrupado)</div><div id="perdas-agrupado"></div></div>
+  <div class="table-card"><div class="table-card-title">Todos os Registros</div><div id="perdas-tabela"></div></div>
+</div>
+
+<!-- RUPTURAS -->
+<div id="page-rupturas" class="page">
+  <div class="section-title">Rupturas</div>
+  <div class="section-sub">Consolidado de todas as lojas</div>
+  <div class="kpi-grid" id="rupturas-kpi"></div>
+  <div class="table-card"><div class="table-card-title">Todos os Registros</div><div id="rupturas-tabela"></div></div>
+</div>
+
+</main>
+<div class="toast" id="toast"></div>
+<script>
+const { createClient } = supabase;
+const sb = createClient('https://ivyhrcbjiijwacsepofh.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml2eWhyY2JqaWlqd2Fjc2Vwb2ZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MjU1MDksImV4cCI6MjEwODAwMTUwOX0.E1z_vYw2WKWyWHI7o46-DhYBLM2Pt6QHF28XiaddOfw');
+
+const LOJAS = ['Super Fenix','Fenix 219','Nova Fenix','Acácia'];
+const CORES = {'Super Fenix':'#ff6b35','Fenix 219':'#ffc145','Nova Fenix':'#3ecf8e','Acácia':'#5b9cf6'};
+const TOTAL_TAREFAS = 24;
+
+const hoje = new Date();
+const hojeStr = hoje.toISOString().split('T')[0];
+const diasSemana=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+const meses=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+document.getElementById('dateBadge').textContent=`${diasSemana[hoje.getDay()]}, ${hoje.getDate()} ${meses[hoje.getMonth()]}`;
+
+// Date range defaults
+document.getElementById('dateFrom').value = hojeStr;
+document.getElementById('dateTo').value = hojeStr;
+
+let currentPeriod = 'hoje';
+let dateFrom = hojeStr, dateTo = hojeStr;
+let activeTab = 'geral';
+let checkChart = null, perdasChart = null, perdasSecaoChart = null, perdasMensalChart = null;
+
+function setPeriod(period) {
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  const map = {'hoje':0,'semana':1,'mes':2,'custom':3};
+  const btns = document.querySelectorAll('.filter-btn');
+  if(period !== 'custom') btns[map[period]]?.classList.add('active');
+  currentPeriod = period;
+  const now = new Date();
+  if(period==='hoje') {
+    dateFrom = dateTo = hojeStr;
+    document.getElementById('dateFrom').value = hojeStr;
+    document.getElementById('dateTo').value = hojeStr;
+  } else if(period==='semana') {
+    const day = now.getDay();
+    const mon = new Date(now); mon.setDate(now.getDate() - (day===0?6:day-1));
+    dateFrom = mon.toISOString().split('T')[0];
+    dateTo = hojeStr;
+    document.getElementById('dateFrom').value = dateFrom;
+    document.getElementById('dateTo').value = dateTo;
+  } else if(period==='mes') {
+    dateFrom = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+    dateTo = hojeStr;
+    document.getElementById('dateFrom').value = dateFrom;
+    document.getElementById('dateTo').value = dateTo;
+  } else {
+    dateFrom = document.getElementById('dateFrom').value || hojeStr;
+    dateTo = document.getElementById('dateTo').value || hojeStr;
+  }
+  loadTab(activeTab);
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('nav-'+name)?.classList.add('active');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  activeTab = name;
+  window.scrollTo(0,0);
+  loadTab(name);
+}
+
+function loadTab(name) {
+  if(name==='geral') loadGeral();
+  else if(name==='checklist') loadChecklist();
+  else if(name==='perdas') loadPerdas();
+  else if(name==='rupturas') loadRupturas();
+}
+
+function lojaPill(loja) {
+  const c = CORES[loja]||'#888';
+  return `<span class="loja-pill" style="background:${c}22;color:${c};border:1px solid ${c}44">${loja}</span>`;
+}
+
+// ── VISÃO GERAL ───────────────────────────────────────
+async function loadGeral() {
+  document.getElementById('kpi-grid').innerHTML='<div class="loading">Carregando...</div>';
+  const [{data:perdas,error:e1},{data:rupturas,error:e2},{data:checklist,error:e3}] = await Promise.all([
+    sb.from('perdas').select('*').gte('data',dateFrom).lte('data',dateTo),
+    sb.from('rupturas').select('*').gte('data',dateFrom).lte('data',dateTo),
+    sb.from('checklist').select('*').gte('data',dateFrom).lte('data',dateTo),
+  ]);
+  const pl=perdas||[], rl=rupturas||[], cl=checklist||[];
+  const totalPerdaValor = pl.reduce((s,p)=>s+parseFloat(p.valor||0),0);
+  const ruptAberta = rl.filter(r=>r.status==='Aberta').length;
+  // checklist: unique (loja+data) combinations
+  const checkDays = {};
+  cl.forEach(c=>{ const k=`${c.loja}__${c.data}`; checkDays[k]=(checkDays[k]||new Set()); checkDays[k].add(c.task_id); });
+  const totalTasks = Object.values(checkDays).reduce((s,v)=>s+v.size,0);
+  const maxTasks = Object.keys(checkDays).length * TOTAL_TAREFAS || 1;
+  const pct = Math.round((totalTasks/maxTasks)*100);
+
+  document.getElementById('geral-sub').textContent = `De ${fmtDate(dateFrom)} a ${fmtDate(dateTo)}`;
+  document.getElementById('kpi-grid').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Total de Perdas</div><div class="kpi-value" style="color:var(--red)">R$ ${totalPerdaValor.toFixed(2)}</div><div class="kpi-sub">${pl.length} registros</div></div>
+    <div class="kpi-card yellow"><div class="kpi-label">Rupturas Abertas</div><div class="kpi-value" style="color:var(--accent2)">${ruptAberta}</div><div class="kpi-sub">${rl.length} no período</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Checklist Geral</div><div class="kpi-value" style="color:var(--green)">${pct}%</div><div class="kpi-sub">${totalTasks} tarefas concluídas</div></div>
+    <div class="kpi-card"><div class="kpi-label">Dias Monitorados</div><div class="kpi-value">${countDays(dateFrom,dateTo)}</div><div class="kpi-sub">4 lojas acompanhadas</div></div>
+  `;
+
+  // Stores summary
+  document.getElementById('stores-row').innerHTML = LOJAS.map(loja=>{
+    const lp = pl.filter(p=>p.loja===loja);
+    const lr = rl.filter(r=>r.loja===loja&&r.status==='Aberta');
+    const lc = cl.filter(c=>c.loja===loja);
+    const lcDays = {};
+    lc.forEach(c=>{ const k=c.data; lcDays[k]=(lcDays[k]||new Set()); lcDays[k].add(c.task_id); });
+    const ltotal = Object.values(lcDays).reduce((s,v)=>s+v.size,0);
+    const lmax = Object.keys(lcDays).length * TOTAL_TAREFAS || 1;
+    const lpct = Object.keys(lcDays).length ? Math.round((ltotal/lmax)*100) : 0;
+    const c = CORES[loja];
+    return `<div class="store-card">
+      <div class="store-header"><div class="store-dot" style="background:${c}"></div><div class="store-name">${loja}</div></div>
+      <div class="store-check-pct" style="color:${c}">${lpct}%</div>
+      <div class="store-check-sub">checklist</div>
+      <div style="margin-top:8px;font-size:12px;color:var(--muted)">R$ ${lp.reduce((s,p)=>s+parseFloat(p.valor||0),0).toFixed(2)} em perdas</div>
+      <div style="font-size:12px;color:var(--muted)">${lr.length} rupturas abertas</div>
+      <div class="store-progress"><div class="store-progress-fill" style="background:${c};width:${lpct}%"></div></div>
+    </div>`;
+  }).join('');
+
+  // Top perdas
+  const sorted = [...pl].sort((a,b)=>parseFloat(b.valor||0)-parseFloat(a.valor||0)).slice(0,6);
+  document.getElementById('geral-top-perdas').innerHTML = !sorted.length
+    ? '<div class="empty"><div class="empty-icon">🟢</div>Sem perdas no período</div>'
+    : `<div class="table-wrap"><table><thead><tr><th>Produto</th><th>Loja</th><th>Seção</th><th>Valor</th></tr></thead><tbody>
+      ${sorted.map(p=>`<tr>
+        <td><strong>${p.produto}</strong></td>
+        <td>${lojaPill(p.loja)}</td>
+        <td><span class="badge badge-yellow">${p.secao}</span></td>
+        <td style="color:var(--red);font-weight:700">R$ ${parseFloat(p.valor||0).toFixed(2)}</td>
+      </tr>`).join('')}</tbody></table></div>`;
+
+  // Rupturas por loja
+  const ruptPorLoja = {};
+  rl.filter(r=>r.status==='Aberta').forEach(r=>{ ruptPorLoja[r.loja]=(ruptPorLoja[r.loja]||0)+1; });
+  document.getElementById('geral-rupt-resumo').innerHTML = !Object.keys(ruptPorLoja).length
+    ? '<div class="empty"><div class="empty-icon">📦</div>Sem rupturas abertas</div>'
+    : `<div class="table-wrap"><table><thead><tr><th>Loja</th><th>Abertas</th></tr></thead><tbody>
+      ${LOJAS.filter(l=>ruptPorLoja[l]).map(l=>`<tr>
+        <td>${lojaPill(l)}</td>
+        <td style="font-family:'Syne',sans-serif;font-weight:700;font-size:18px;color:var(--accent2)">${ruptPorLoja[l]}</td>
+      </tr>`).join('')}</tbody></table></div>`;
+}
+
+// ── CHECKLIST ─────────────────────────────────────────
+async function loadChecklist() {
+  const {data:cl, error:clErr} = await sb.from('checklist').select('*').gte('data',dateFrom).lte('data',dateTo);
+  const list = cl||[];
+  const isMultiDay = dateFrom !== dateTo;
+  document.getElementById('checklist-sub').textContent = isMultiDay
+    ? `De ${fmtDate(dateFrom)} a ${fmtDate(dateTo)}`
+    : `Hoje, ${fmtDate(hojeStr)}`;
+
+  // Per-loja stats
+  const storeData = {};
+  LOJAS.forEach(l=>{ storeData[l] = { tasks: new Set(), days: new Set() }; });
+  list.forEach(c=>{ storeData[c.loja]?.tasks.add(c.task_id+'__'+c.data); storeData[c.loja]?.days.add(c.data); });
+
+  // Build store cards
+  document.getElementById('check-store-cards').innerHTML = LOJAS.map(loja=>{
+    const sd = storeData[loja];
+    const daysCount = sd.days.size || 1;
+    const maxPossible = daysCount * TOTAL_TAREFAS;
+    const done = sd.tasks.size;
+    const pct = Math.round((done/maxPossible)*100);
+    const c = CORES[loja];
+    return `<div class="store-card">
+      <div class="store-header"><div class="store-dot" style="background:${c}"></div><div class="store-name">${loja}</div></div>
+      <div class="store-check-pct" style="color:${c}">${pct}%</div>
+      <div class="store-check-sub">${done} de ${maxPossible} tarefas</div>
+      <div class="store-progress"><div class="store-progress-fill" style="background:${c};width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+
+  // Chart
+  if(checkChart) checkChart.destroy();
+  const ctx = document.getElementById('checkChart').getContext('2d');
+  if(!isMultiDay) {
+    // Bar chart — single day
+    document.getElementById('chart-title').textContent = 'Tarefas concluídas — Hoje';
+    const doneCounts = LOJAS.map(l=>{
+      const d = new Set(list.filter(c=>c.loja===l&&c.data===dateFrom).map(c=>c.task_id));
+      return d.size;
+    });
+    checkChart = new Chart(ctx,{
+      type:'bar',
+      data:{
+        labels:LOJAS,
+        datasets:[{
+          label:'Tarefas concluídas',
+          data:doneCounts,
+          backgroundColor:LOJAS.map(l=>CORES[l]+'bb'),
+          borderColor:LOJAS.map(l=>CORES[l]),
+          borderWidth:2,borderRadius:8,
+        }]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          y:{max:TOTAL_TAREFAS,ticks:{color:'#7a7f96'},grid:{color:'#2a2d3a'},border:{color:'#2a2d3a'}},
+          x:{ticks:{color:'#7a7f96'},grid:{display:false},border:{color:'#2a2d3a'}}
+        }
+      }
+    });
+  } else {
+    // Line chart — multiple days
+    document.getElementById('chart-title').textContent = 'Evolução do checklist por loja';
+    const allDates = [...new Set(list.map(c=>c.data))].sort();
+    const datasets = LOJAS.map(loja=>({
+      label:loja,
+      data:allDates.map(d=>{
+        const done = new Set(list.filter(c=>c.loja===loja&&c.data===d).map(c=>c.task_id)).size;
+        return Math.round((done/TOTAL_TAREFAS)*100);
+      }),
+      borderColor:CORES[loja],
+      backgroundColor:CORES[loja]+'33',
+      tension:.4,pointRadius:4,borderWidth:2,
+    }));
+    checkChart = new Chart(ctx,{
+      type:'line',
+      data:{labels:allDates.map(d=>{const dt=new Date(d+'T12:00:00');return`${dt.getDate()}/${dt.getMonth()+1}`;}),datasets},
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#e8eaf0',font:{size:11}}}},
+        scales:{
+          y:{min:0,max:100,ticks:{color:'#7a7f96',callback:v=>v+'%'},grid:{color:'#2a2d3a'},border:{color:'#2a2d3a'}},
+          x:{ticks:{color:'#7a7f96'},grid:{display:false},border:{color:'#2a2d3a'}}
+        }
+      }
+    });
+  }
+
+  // Table of completed tasks
+  if(!list.length) {
+    document.getElementById('checklist-table').innerHTML='<div class="empty"><div class="empty-icon">📋</div>Nenhuma tarefa no período</div>';
+    return;
+  }
+  const sorted = [...list].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  document.getElementById('checklist-table').innerHTML=`<div class="table-wrap"><table>
+    <thead><tr><th>Data</th><th>Hora</th><th>Loja</th><th>Turno</th><th>Tarefa</th></tr></thead>
+    <tbody>${sorted.slice(0,80).map(c=>`<tr>
+      <td style="color:var(--muted)">${fmtDate(c.data)}</td>
+      <td style="color:var(--muted)">${c.created_at?new Date(c.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
+      <td>${lojaPill(c.loja)}</td>
+      <td><span class="badge badge-orange">${c.turno||'—'}</span></td>
+      <td>${c.task_text||c.task_id}</td>
+    </tr>`).join('')}
+    ${sorted.length>80?`<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:12px">… e mais ${sorted.length-80} registros</td></tr>`:''}</tbody></table></div>`;
+}
+
+// ── PERDAS ────────────────────────────────────────────
+async function loadPerdas() {
+  const {data:pl} = await sb.from('perdas').select('*').gte('data',dateFrom).lte('data',dateTo).order('created_at',{ascending:false});
+  const list = pl||[];
+
+  // Histórico dos últimos 6 meses para evolução mensal
+  const hoje6m = new Date(); hoje6m.setMonth(hoje6m.getMonth()-5); hoje6m.setDate(1);
+  const from6m = hoje6m.toISOString().split('T')[0];
+  const {data:plHist} = await sb.from('perdas').select('data,valor').gte('data',from6m);
+  const hist = plHist||[];
+
+  const totalValor = list.reduce((s,p)=>s+parseFloat(p.valor||0),0);
+  const porLoja = {};
+  const porSecao = {};
+  LOJAS.forEach(l=>{ porLoja[l]=0; });
+  list.forEach(p=>{
+    porLoja[p.loja]=(porLoja[p.loja]||0)+parseFloat(p.valor||0);
+    porSecao[p.secao]=(porSecao[p.secao]||0)+parseFloat(p.valor||0);
+  });
+  const maxLoja = Object.keys(porLoja).reduce((a,b)=>porLoja[a]>porLoja[b]?a:b,'Super Fenix');
+
+  document.getElementById('perdas-kpi').innerHTML=`
+    <div class="kpi-card red"><div class="kpi-label">Total Perdas</div><div class="kpi-value" style="color:var(--red)">R$ ${totalValor.toFixed(2)}</div><div class="kpi-sub">${list.length} registros</div></div>
+    <div class="kpi-card"><div class="kpi-label">Loja com mais perdas</div><div class="kpi-value" style="font-size:18px;color:${CORES[maxLoja]}">${maxLoja}</div><div class="kpi-sub">R$ ${(porLoja[maxLoja]||0).toFixed(2)}</div></div>
+    <div class="kpi-card yellow"><div class="kpi-label">Seção crítica</div><div class="kpi-value" style="font-size:18px;color:var(--accent2)">${Object.keys(porSecao).sort((a,b)=>porSecao[b]-porSecao[a])[0]||'—'}</div><div class="kpi-sub">maior valor perdido</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Média por dia</div><div class="kpi-value" style="color:var(--green)">R$ ${(totalValor/Math.max(countDays(dateFrom,dateTo),1)).toFixed(2)}</div><div class="kpi-sub">por ${countDays(dateFrom,dateTo)} dias</div></div>
+  `;
+
+  if(perdasChart) perdasChart.destroy();
+  const ctx1 = document.getElementById('perdasChart').getContext('2d');
+  perdasChart = new Chart(ctx1,{
+    type:'bar',
+    data:{
+      labels:LOJAS,
+      datasets:[{label:'Perdas (R$)',data:LOJAS.map(l=>parseFloat((porLoja[l]||0).toFixed(2))),
+        backgroundColor:LOJAS.map(l=>CORES[l]+'bb'),borderColor:LOJAS.map(l=>CORES[l]),borderWidth:2,borderRadius:8}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{y:{ticks:{color:'#7a7f96',callback:v=>'R$ '+v},grid:{color:'#2a2d3a'},border:{color:'#2a2d3a'}},
+              x:{ticks:{color:'#7a7f96'},grid:{display:false},border:{color:'#2a2d3a'}}}}
+  });
+
+  if(perdasSecaoChart) perdasSecaoChart.destroy();
+  const ctx2 = document.getElementById('perdasSecaoChart').getContext('2d');
+  const secKeys = Object.keys(porSecao).sort((a,b)=>porSecao[b]-porSecao[a]);
+  perdasSecaoChart = new Chart(ctx2,{
+    type:'bar',
+    data:{
+      labels:secKeys,
+      datasets:[{label:'Perdas (R$)',data:secKeys.map(k=>parseFloat(porSecao[k].toFixed(2))),
+        backgroundColor:'#ff6b3599',borderColor:'#ff6b35',borderWidth:2,borderRadius:8}]
+    },
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#7a7f96',callback:v=>'R$ '+v},grid:{color:'#2a2d3a'},border:{color:'#2a2d3a'}},
+              y:{ticks:{color:'#7a7f96'},grid:{display:false},border:{color:'#2a2d3a'}}}}
+  });
+
+  // Gráfico evolução mensal (últimos 6 meses)
+  if(perdasMensalChart) perdasMensalChart.destroy();
+  const ctx3 = document.getElementById('perdasMensalChart').getContext('2d');
+  const mesesNomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const mesesLabels = [], mesesKeys = [];
+  for(let i=5;i>=0;i--){
+    const d = new Date(); d.setMonth(d.getMonth()-i);
+    mesesKeys.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+    mesesLabels.push(`${mesesNomes[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`);
+  }
+  const totaisMensais = mesesKeys.map(mk=>
+    hist.filter(p=>p.data&&p.data.startsWith(mk)).reduce((s,p)=>s+parseFloat(p.valor||0),0)
+  );
+  perdasMensalChart = new Chart(ctx3,{
+    type:'bar',
+    data:{
+      labels:mesesLabels,
+      datasets:[{
+        label:'Total Perdas (R$)',
+        data:totaisMensais.map(v=>parseFloat(v.toFixed(2))),
+        backgroundColor:totaisMensais.map((_,i)=>i===5?'#ff6b35bb':'#ff6b3544'),
+        borderColor:totaisMensais.map((_,i)=>i===5?'#ff6b35':'#ff6b3588'),
+        borderWidth:2,borderRadius:8
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'R$ '+c.parsed.y.toFixed(2)}}},
+      scales:{
+        y:{ticks:{color:'#7a7f96',callback:v=>'R$ '+v},grid:{color:'#2a2d3a'},border:{color:'#2a2d3a'}},
+        x:{ticks:{color:'#7a7f96'},grid:{display:false},border:{color:'#2a2d3a'}}
+      }
+    }
+  });
+
+  // Tabela agrupada por produto (mesmo nome somado)
+  const normalize = s=>(s||'').toLowerCase().trim().replace(/\s+/g,' ');
+  const agrupado = {};
+  list.forEach(p=>{
+    const key = normalize(p.produto);
+    if(!agrupado[key]) agrupado[key]={nome:p.produto,secao:p.secao,qtdTotal:0,valorTotal:0,ocorrencias:0,lojas:new Set()};
+    agrupado[key].qtdTotal += parseFloat(p.qtd||0);
+    agrupado[key].valorTotal += parseFloat(p.valor||0);
+    agrupado[key].ocorrencias += 1;
+    agrupado[key].lojas.add(p.loja);
+  });
+  const agrupList = Object.values(agrupado).sort((a,b)=>b.valorTotal-a.valorTotal);
+
+  document.getElementById('perdas-agrupado').innerHTML = !agrupList.length
+    ? '<div class="empty"><div class="empty-icon">🟢</div>Nenhuma perda no período</div>'
+    : `<div class="table-wrap"><table>
+      <thead><tr><th>Produto</th><th>Seção</th><th>Ocorrências</th><th>Qtd Total</th><th>Total Perdido</th><th>Lojas</th></tr></thead>
+      <tbody>${agrupList.map((p,i)=>`<tr>
+        <td><strong>${i===0?'🔴 ':i===1?'🟠 ':i===2?'🟡 ':''}${p.nome}</strong></td>
+        <td><span class="badge badge-yellow">${p.secao}</span></td>
+        <td style="text-align:center;font-family:'Syne',sans-serif;font-weight:700">${p.ocorrencias}x</td>
+        <td style="color:var(--muted)">${p.qtdTotal.toFixed(1)}</td>
+        <td style="color:var(--red);font-weight:700;font-family:'Syne',sans-serif">R$ ${p.valorTotal.toFixed(2)}</td>
+        <td style="font-size:12px">${[...p.lojas].map(l=>`<span style="color:${CORES[l]||'#888'}">${l.split(' ')[0]}</span>`).join(', ')}</td>
+      </tr>`).join('')}</tbody></table></div>`;
+
+  // Tabela completa
+  document.getElementById('perdas-tabela').innerHTML = !list.length
+    ? '<div class="empty"><div class="empty-icon">🟢</div>Nenhuma perda no período</div>'
+    : `<div class="table-wrap"><table>
+      <thead><tr><th>Data</th><th>Loja</th><th>Produto</th><th>Seção</th><th>Motivo</th><th>Qtd</th><th>Vlr Unit.</th><th>Total</th></tr></thead>
+      <tbody>${list.map(p=>`<tr>
+        <td style="color:var(--muted)">${fmtDate(p.data)}</td>
+        <td>${lojaPill(p.loja)}</td>
+        <td><strong>${p.produto}</strong>${p.obs?`<br><small style="color:var(--muted)">${p.obs}</small>`:''}</td>
+        <td><span class="badge badge-yellow">${p.secao}</span></td>
+        <td>${p.motivo}</td>
+        <td>${p.qtd} ${p.unidade}</td>
+        <td style="color:var(--muted)">${p.valor_unitario>0?'R$ '+parseFloat(p.valor_unitario).toFixed(2):'—'}</td>
+        <td style="color:var(--red);font-weight:700">${p.valor>0?'R$ '+parseFloat(p.valor).toFixed(2):'—'}</td>
+      </tr>`).join('')}</tbody></table></div>`;
+}
+
+// ── RUPTURAS ──────────────────────────────────────────
+async function loadRupturas() {
+  const {data:rl} = await sb.from('rupturas').select('*').gte('data',dateFrom).lte('data',dateTo).order('created_at',{ascending:false});
+  const list = rl||[];
+  const abertas = list.filter(r=>r.status==='Aberta');
+  const altas = list.filter(r=>r.prioridade==='Alta');
+
+  document.getElementById('rupturas-kpi').innerHTML=`
+    <div class="kpi-card yellow"><div class="kpi-label">Total Registradas</div><div class="kpi-value" style="color:var(--accent2)">${list.length}</div><div class="kpi-sub">no período</div></div>
+    <div class="kpi-card red"><div class="kpi-label">Abertas</div><div class="kpi-value" style="color:var(--red)">${abertas.length}</div><div class="kpi-sub">não resolvidas</div></div>
+    <div class="kpi-card"><div class="kpi-label">Alta Prioridade</div><div class="kpi-value">${altas.length}</div><div class="kpi-sub">itens críticos</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Resolvidas</div><div class="kpi-value" style="color:var(--green)">${list.length-abertas.length}</div><div class="kpi-sub">no período</div></div>
+  `;
+
+  document.getElementById('rupturas-tabela').innerHTML = !list.length
+    ? '<div class="empty"><div class="empty-icon">📦</div>Nenhuma ruptura no período</div>'
+    : `<div class="table-wrap"><table>
+      <thead><tr><th>Data</th><th>Hora</th><th>Loja</th><th>Produto</th><th>Seção</th><th>Causa</th><th>Prioridade</th><th>Status</th></tr></thead>
+      <tbody>${list.map(r=>`<tr>
+        <td style="color:var(--muted)">${fmtDate(r.data)}</td>
+        <td style="color:var(--muted)">${r.hora||'—'}</td>
+        <td>${lojaPill(r.loja)}</td>
+        <td><strong>${r.produto}</strong>${r.acao?`<br><small style="color:var(--muted)">${r.acao}</small>`:''}</td>
+        <td><span class="badge badge-yellow">${r.secao}</span></td>
+        <td>${r.causa}</td>
+        <td><span class="badge ${r.prioridade==='Alta'?'badge-red':r.prioridade==='Média'?'badge-yellow':'badge-green'}">${r.prioridade}</span></td>
+        <td><span class="badge ${r.status==='Resolvida'?'badge-green':'badge-orange'}">${r.status}</span></td>
+      </tr>`).join('')}</tbody></table></div>`;
+}
+
+// ── HELPERS ───────────────────────────────────────────
+function fmtDate(d) {
+  if(!d) return '—';
+  const dt = new Date(d+'T12:00:00');
+  return `${dt.getDate()}/${dt.getMonth()+1}/${dt.getFullYear()}`;
+}
+function countDays(from,to) {
+  const a=new Date(from), b=new Date(to);
+  return Math.round((b-a)/86400000)+1;
+}
+function showToast(msg,type='success'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className=`toast ${type} show`;
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ── INIT ──────────────────────────────────────────────
+loadGeral();
+</script>
+</body>
+</html>
